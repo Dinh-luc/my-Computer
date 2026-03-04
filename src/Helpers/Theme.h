@@ -123,18 +123,6 @@ public:
     }
 };
 
-bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap) {
-    // Nếu bạn vẽ lên Sprite (img) trong AppManager
-    // Bạn cần access được biến 'img' ở đây. 
-    // Cách đơn giản nhất cho người mới: Vẽ trực tiếp lên màn hình TFT, sau đó vẽ Menu đè lên (nhưng Menu phải transparent).
-
-    // Tuy nhiên, cách tốt nhất với cấu trúc của bạn là vẽ vào Sprite 'img'.
-    // Giả sử biến 'img' (TFT_eSprite) là public hoặc có thể truy cập:
-    extern TFT_eSprite img; // Khai báo extern để trỏ tới biến img bên AppManager
-    img.pushImage(x, y, w, h, bitmap);
-    return 1;   
-}
-
 // Khai báo global để dùng mọi nơi
 extern ThemeManager theme;
 

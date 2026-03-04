@@ -35,6 +35,12 @@ private:
     int wallFileCount = 0;
     int wallIndex = 0;
 
+    // --- THÊM CÁC BIẾN MỚI CHO SCROLL & MARQUEE ---
+    int wallScrollOffset = 0;           // Vị trí cuộn của danh sách ảnh
+    const int wallItemsPerPage = 5;     // Số dòng hiển thị tối đa trong menu ảnh
+    int wallTextScrollOffset = 0;       // Vị trí cắt chữ để làm hiệu ứng chạy
+    unsigned long lastWallTextUpdate = 0; // Bộ đếm thời gian chạy chữ
+
 public:
     const char* getName() override { return "DISPLAY"; }
 
@@ -43,7 +49,23 @@ public:
     }
 
     void update() override {
-        
+        // Logic xử lý Chữ chạy (Marquee)
+        if (pageState == STATE_PICK_BR && millis() - lastWallTextUpdate > 150) {
+            // Lấy tên file đang chọn (hoặc dòng Remove)
+            String currentName = (wallIndex == wallFileCount) ? "[Remove / None]" : tempPathList[wallIndex];
+            
+            // Chỉ chạy chữ nếu tên dài hơn 14 ký tự
+            if (currentName.length() > 14) { 
+                wallTextScrollOffset++;
+                // Nếu chạy hết chữ -> Reset về đầu, delay 1 chút (âm 3)
+                if (wallTextScrollOffset > (int)currentName.length() - 5) {
+                    wallTextScrollOffset = -3; 
+                }
+            } else {
+                wallTextScrollOffset = 0;
+            }
+            lastWallTextUpdate = millis();
+        }
     }
 
     void drawDetails(TFT_eSprite* spr, int x, int y, int w, int h, bool isFocused) override {
@@ -63,7 +85,7 @@ public:
         int startY = y + 20;
 
         // Nếu đang chọn hình nền thì vẽ giao diện chọn hình
-        if (isPickingWallpaper) {
+        if (pageState == STATE_PICK_BR) {
             drawWallpaperPicker(spr, x, startY, w, h);
             return;
         }
@@ -108,73 +130,103 @@ public:
     }
 
     bool handleInput(char key) override {
-        // --- A. KHI ĐANG CHỌN MÀU (POPUP) ---
+        // --- 1. KHI ĐANG CHỌN MÀU (POPUP) ---
         if (pageState == STATE_PICK_COLOR) {
-            if (key == 'L') { // Trái
-                pickerIndex--;
-                if (pickerIndex < 0) pickerIndex = 11;
+            if (key == 'L') { 
+                pickerIndex--; 
+                if (pickerIndex < 0) pickerIndex = 11; 
             }
-            else if (key == 'R') { // Phải
-                pickerIndex++;
-                if (pickerIndex > 11) pickerIndex = 0;
+            else if (key == 'R') { 
+                pickerIndex++; 
+                if (pickerIndex > 11) pickerIndex = 0; 
             }
-            else if (key == 'U') { // Lên
-                pickerIndex -= 4;
-                if (pickerIndex < 0) pickerIndex += 12;
+            else if (key == 'U') { 
+                pickerIndex -= 4; 
+                if (pickerIndex < 0) pickerIndex += 12; 
             }
-            else if (key == 'D') { // Xuống
-                pickerIndex += 4;
-                if (pickerIndex > 11) pickerIndex -= 12;
+            else if (key == 'D') { 
+                pickerIndex += 4; 
+                if (pickerIndex > 11) pickerIndex -= 12; 
             }
-            else if (key == 'O') { // OK -> Apply màu
+            else if (key == 'O') { 
                 theme.setCustomTheme(PALETTE_COLORS[pickerIndex]);
-                pageState = STATE_NAVIGATE; // Thoát ra
+                pageState = STATE_NAVIGATE; 
             }
-            else if (key == '#') { // Cancel
-                pageState = STATE_NAVIGATE;
+            else if (key == '#') {
+                pageState = STATE_NAVIGATE; 
             }
             return true; 
         }
 
-        // --- B. KHI ĐANG CHỈNH GIÁ TRỊ (EDIT MODE) ---
+        // --- 2. KHI ĐANG CHỌN BACKGROUND (WALLPAPER) ---
+        if (pageState == STATE_PICK_BR) {
+            if (key == 'U') {
+                wallIndex--;
+                wallTextScrollOffset = -3;
+                if (wallIndex < 0) wallIndex = wallFileCount;
+            }
+            else if (key == 'D') {
+                wallIndex++;
+                wallTextScrollOffset = -3;
+                if (wallIndex > wallFileCount) wallIndex = 0;
+            }
+            else if (key == 'O') {
+                if (wallIndex == wallFileCount) {
+                    theme.wallpaperPath = ""; // User chọn [Remove / None]
+                } 
+                else {
+                    theme.wallpaperPath = "/SystemConfig/background/" + tempPathList[wallIndex];
+                }
+                theme.saveSettings();
+                pageState = STATE_NAVIGATE; // Xong việc, quay lại menu chính
+            }
+            else if (key == '#' || key == 'L') {
+                pageState = STATE_NAVIGATE; // Hủy
+            }
+            return true;
+        }
+
+        // --- 3. KHI ĐANG CHỈNH GIÁ TRỊ (EDIT MODE) ---
         if (pageState == STATE_EDIT_ITEM) {
             if (key == 'L' || key == 'R') {
                 adjustValue(key == 'R' ? 1 : -1);
             }
             else if (key == 'O' || key == '#') {
-                // Nếu đang ở dòng Theme mà chọn Custom -> Nhảy vào chọn màu
                 if (selectedIndex == 0 && theme.currentMode == THEME_CUSTOM && key == 'O') {
                     pageState = STATE_PICK_COLOR;
                     pickerIndex = 0;
                 } 
-                // else if (selectedIndex == 4 && isPickingWallpaper && key == 'O') {
-                //     isPickingWallpaper
-                // }
                 else {
-                    pageState = STATE_NAVIGATE; // Quay về chế độ cuộn
+                    pageState = STATE_NAVIGATE; 
                 }
             }
-            return true; // Chặn input
+            return true; 
         }
 
-        // --- C. KHI ĐANG CUỘN DANH SÁCH (NAVIGATE MODE) ---
+        // --- 4. KHI ĐANG CUỘN DANH SÁCH (NAVIGATE MODE) ---
         if (pageState == STATE_NAVIGATE) {
             if (key == 'U') {
                 selectedIndex--;
                 if (selectedIndex < 0) selectedIndex = 0;
-                if (selectedIndex < scrollOffset) scrollOffset = selectedIndex; // Cuộn lên
+                if (selectedIndex < scrollOffset) scrollOffset = selectedIndex;
             }
             else if (key == 'D') {
                 selectedIndex++;
                 if (selectedIndex >= totalItems) selectedIndex = totalItems - 1;
-                if (selectedIndex >= scrollOffset + itemsPerPage) scrollOffset = selectedIndex - itemsPerPage + 1; // Cuộn xuống
+                if (selectedIndex >= scrollOffset + itemsPerPage) scrollOffset = selectedIndex - itemsPerPage + 1;
             }
             else if (key == 'R' || key == 'O') { 
-                // Nút Phải hoặc OK để VÀO chế độ sửa
-                pageState = STATE_EDIT_ITEM;
+                if (selectedIndex == 4) { 
+                    pageState = STATE_PICK_BR;
+                    wallIndex = 0;
+                    scanWallpapers(); // Chỉ gọi quét thẻ nhớ 1 lần duy nhất ở đây!
+                }
+                else if (selectedIndex != 0) {
+                    // Các dòng khác thì vào chế độ chỉnh sửa trái/phải bình thường
+                    pageState = STATE_EDIT_ITEM;
+                }
             }
             else if (key == 'L') {
-                // Nút Trái để thoát ra Menu chính (SettingsApp xử lý)
                 return false; 
             }
         }
@@ -213,11 +265,9 @@ private:
                 spr->setTextColor(theme.color.textSub);
                 if (theme.wallpaperPath == "") {
                     spr->print("None");
-                    isPickingWallpaper = false;
                 }
                 else {
                     spr->print("Image");
-                    isPickingWallpaper = true;
                 }
                 break;
 
@@ -298,11 +348,6 @@ private:
                     // theme.setBrightness(b);
                 }
                 break;
-            case 4: // Wallpaper (Toggle On/Off đơn giản)
-                if (theme.wallpaperPath != "") theme.wallpaperPath = "";
-                else theme.wallpaperPath = "/SystemConfig/background/ameno-element.jpg"; 
-                theme.saveSettings();
-                break;
             case 5: // Timeout
                 theme.screensaverTimeout += (dir * 15);
                 if (theme.screensaverTimeout < 15) {
@@ -341,23 +386,84 @@ private:
     }
 
     void drawWallpaperPicker(TFT_eSprite* spr, int x, int y, int w, int h) {
+        // Xóa nền khung chọn
         spr->fillRect(x, y, w, h - 20, theme.color.bg);
-        spr->setTextColor(theme.color.highlight);
+        spr->setTextColor(theme.color.textSub);
         spr->drawString("Select Wallpaper:", x + 5, y);
         
-        for (int i=0; i < wallFileCount; i++) {
-            if (i == wallIndex) spr->setTextColor(theme.color.highlight);
-            else spr->setTextColor(theme.color.text);
-            
-            spr->setCursor(x + 10, y + 15 + (i*12));
-            spr->print(tempPathList[i]);
+        int startY = y + 20;
+        int lineH = 16;
+        int totalWallItems = wallFileCount + 1; // +1 cho nút Remove ở cuối
+
+        // --- LOGIC CUỘN DANH SÁCH ---
+        if (totalWallItems > wallItemsPerPage) {
+            if (wallIndex >= wallScrollOffset + wallItemsPerPage) {
+                wallScrollOffset = wallIndex - wallItemsPerPage + 1;
+            } 
+            else if (wallIndex < wallScrollOffset) {
+                wallScrollOffset = wallIndex;
+            }
+        } else {
+            wallScrollOffset = 0;
         }
 
-        // Nút Remove/None ở cuối
-        if (wallIndex == wallFileCount) spr->setTextColor(theme.color.highlight);
-        else spr->setTextColor(theme.color.alert);
-        spr->setCursor(x + 10, y + 15 + (wallFileCount*12));
-        spr->print("[Remove / None]");
+        // Tắt tính năng tự xuống dòng để chữ chạy không bị rớt dòng
+        spr->setTextWrap(false); 
+
+        // --- VÒNG LẶP VẼ CÁC DÒNG ---
+        for (int i = 0; i < wallItemsPerPage; i++) {
+            int idx = i + wallScrollOffset;
+            if (idx >= totalWallItems) break;
+
+            int lineY = startY + (i * lineH);
+            bool isSelected = (idx == wallIndex);
+
+            String textToDraw = "";
+            if (idx == wallFileCount) {
+                textToDraw = "[Remove / None]";
+                spr->setTextColor(isSelected ? theme.color.highlight : theme.color.alert);
+            } else {
+                textToDraw = tempPathList[idx];
+                spr->setTextColor(isSelected ? theme.color.highlight : theme.color.text);
+            }
+
+            // Xóa nền của dòng cũ (Tránh nhòe chữ khi cuộn)
+            spr->fillRect(x + 5, lineY, w - 10, lineH, theme.color.bg);
+
+            spr->setCursor(x + 10, lineY + 2);
+
+            if (isSelected) {
+                spr->print(">"); // Dấu trỏ
+                spr->setCursor(x + 20, lineY + 2);
+
+                // --- LOGIC CHỮ CHẠY ---
+                if (textToDraw.length() > 14) {
+                    int startChar = (wallTextScrollOffset > 0) ? wallTextScrollOffset : 0;
+                    String displayName = "";
+                    // Cắt lấy đúng 14 ký tự để hiển thị
+                    if (startChar + 14 < textToDraw.length()) {
+                         displayName = textToDraw.substring(startChar, startChar + 14);
+                    } else {
+                         displayName = textToDraw.substring(startChar);
+                    }
+                    spr->print(displayName);
+                } else {
+                    spr->print(textToDraw);
+                }
+            } 
+            else {
+                // Các dòng không được chọn (Tĩnh)
+                spr->setCursor(x + 20, lineY + 2);
+                if(textToDraw.length() > 14) {
+                    spr->print(textToDraw.substring(0, 12) + ".."); // Rút gọn tĩnh
+                } else {
+                    spr->print(textToDraw);
+                }
+            }
+        }
+        
+        // Bật lại tính năng tự xuống dòng
+        spr->setTextWrap(true); 
     }
 };
 
