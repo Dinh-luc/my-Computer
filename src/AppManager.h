@@ -18,6 +18,8 @@
 #define KEY_EXIT        '#' 
 #define KEY_UP          'U'
 #define KEY_DOWN        'D'
+#define KEY_LEFT        'L'
+#define KEY_RIGHT       'R'
 #define KEY_SELECT      'O'
 #define KEY_SETTINGS    'A'
 
@@ -100,14 +102,6 @@ public:
 
             uint16_t jpgW = 0, jpgH = 0;
             TJpgDec.getFsJpgSize(&jpgW, &jpgH, theme.wallpaperPath.c_str(), SD_MMC);
-
-            int scale = 1;
-            int menuH = height - BAR_HEIGHT;
-            if (jpgW >= width * 4 || jpgH >= menuH * 4) scale = 8;
-            else if (jpgW >= width * 2 || jpgH >= menuH * 2) scale = 4;
-            else if (jpgW > width || jpgH > menuH) scale = 2;
-            
-            // TJpgDec.setJpgScale(scale);
             
             // Vẽ ảnh gốc vào bgCache
             TJpgDec.drawFsJpg(0, 0, theme.wallpaperPath.c_str(), SD_MMC);

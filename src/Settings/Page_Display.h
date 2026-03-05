@@ -356,7 +356,7 @@ private:
                 } else {
                     theme.screensaverEnabled = true;
                 }
-                if (theme.screensaverTimeout > 120) theme.screensaverTimeout = 120;
+                if (theme.screensaverTimeout > 300) theme.screensaverTimeout = 300;
                 theme.saveSettings();
                 break;
              case 6: // Type
