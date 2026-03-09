@@ -35,11 +35,11 @@ public:
     ~App_WebSync(){}
 
     const char* getName() override { 
-        return "PC CONNECT"; 
+        return "DOWNLOAD"; 
     }
 
-    uint16_t getIconColor() override {
-        return TFT_BLUE;
+    const char* getIconColor() override {
+        return "icon_download";
     }
 
     bool showStatusBar() override { 

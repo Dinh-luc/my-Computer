@@ -4,17 +4,20 @@
 #include "Games/Tetris_Game.h"
 #include "Games/Snake_Game.h" 
 #include "Games/App_WebSync.h"
+#include "SettingsApp.h"
 
 // 1. Khởi tạo các đối tượng game
 TetrisGame tetris;
 SnakeGame snake;
 App_WebSync webSync;
+SettingsApp settingsApp;
 
 // 2. Đưa vào danh sách
 AppInterface* myApps[] = {
     &tetris,
     &snake,
-    &webSync
+    &webSync,
+    &settingsApp
 };
 
 // 3. Đếm số lượng

@@ -14,8 +14,8 @@ public:
     virtual const char* getName() = 0;
 
     // Icon app (tạm thời chưa dùng bitmap, có thể dùng màu đại diện)
-    virtual uint16_t getIconColor() { 
-        return TFT_WHITE; 
+    virtual const char* getIconColor() { 
+        return "icon_default"; 
     }
 
     // Hàm khởi tạo khi app BẮT ĐẦU (cấp phát bộ nhớ, reset điểm...)

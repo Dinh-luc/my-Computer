@@ -62,8 +62,8 @@ public:
         return "SETTINGS"; 
     }
 
-    uint16_t getIconColor() override { 
-        return TFT_LIGHTGREY; 
+    const char* getIconColor() override { 
+        return "icon_setting"; 
     }
 
     bool showStatusBar() override { 

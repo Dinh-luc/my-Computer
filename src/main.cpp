@@ -19,11 +19,12 @@
 #include "AppRegistry.h"
 #include "AppManager.h"
 
-#define TFT_CS   1
-#define TFT_RS   42
-#define TFT_RST  2
-#define TFT_SDA  46
-#define TFT_CLK  3
+// ================= Define Pins TFT_eSPI =================
+#define TFT_MOSI  46  // Chân SDA / DIN trên màn hình
+#define TFT_SCLK  3   // Chân SCK / CLK trên màn hình
+#define TFT_CS    1   // Chân CS (Chip Select)
+#define TFT_DC    42  // Chân DC / RS (Data/Command)
+#define TFT_RST   2   // Chân RES / RST (Reset)
 
 int width = 160;
 int height = 128;
@@ -162,11 +163,11 @@ void setup() {
 
   manager.init();
 
-  Serial.println("✅ Khởi tạo thành công!");
-
   xTaskCreatePinnedToCore(taskInput, "Input", 4096, NULL, 1, NULL, 1);
   xTaskCreatePinnedToCore(taskGameLoop, "GameLoop", 8192, NULL, 1, NULL, 1);
   xTaskCreatePinnedToCore(taskSystem, "SysTask", 8192, NULL, 1, NULL, 0);
+
+  Serial.println("✅ Khởi tạo thành công!");
 }
 
 // ================= Loop =================

@@ -102,8 +102,8 @@ class TetrisGame: public AppInterface {
             return "TETRIS";
         }
 
-        uint16_t getIconColor() override {
-            return MAGENTA;
+        const char* getIconColor() override {
+            return "TETRIS";
         }
 
         bool showStatusBar() override { 

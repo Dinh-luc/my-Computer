@@ -193,6 +193,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                     exportName = exportName.replace(/\.[^/.]+$/, "") + ".jpg";
 
                 } else {
+                    // Logic Icon
                     targetW = parseInt(document.getElementById('iconW').value) || img.width;
                     targetH = parseInt(document.getElementById('iconH').value) || img.height;
                     exportMime = 'image/png'; 
@@ -202,13 +203,32 @@ const char index_html[] PROGMEM = R"rawliteral(
                     ctx.clearRect(0, 0, targetW, targetH);
                     ctx.drawImage(img, 0, 0, targetW, targetH);
 
+                    // ====================================================
+                    // THUẬT TOÁN KHỬ VIỀN TÍM (ALPHA THRESHOLDING)
+                    // ====================================================
+                    let imgData = ctx.getImageData(0, 0, targetW, targetH);
+                    let data = imgData.data;
+                    
+                    for (let i = 3; i < data.length; i += 4) {
+                        if (data[i] < 128) {
+                            data[i] = 0;
+                        } else {
+                            data[i] = 255;
+                        }
+                    }
+                    ctx.putImageData(imgData, 0, 0);
+                    // ====================================================
+
                     exportName = exportName.replace(/\.[^/.]+$/, "") + ".png";
                 }
 
+                // --- ĐOẠN CODE ĐƯỢC KHÔI PHỤC ---
                 canvas.toBlob(function(blob) {
                     URL.revokeObjectURL(img.src); 
                     sendToServer(blob, exportName, '/upload', 'fileProgressCont', 'fileProgressBar', 'fileStatus', 'btnUploadFile');
                 }, exportMime, 0.90); 
+                // ---------------------------------
+
             };
             img.src = URL.createObjectURL(file);
         } else {
