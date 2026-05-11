@@ -10,105 +10,53 @@
 
 class Storage {
 private:
+    bool isSDReady = false;
 
 public:
     bool initSD() {
         if(!SD_MMC.setPins(SD_CLK, SD_CMD, SD_D0)) {
-            Serial.println("FileStorage log: ❌ SD_MMC: đổi chân thất bại!");
+            Serial.println("❌ SD_MMC: Đổi chân thất bại!");
+            isSDReady = false;
             return false;
         }
-
-        if (!SD_MMC.begin("/sdcard", true, false, 10)) {
-            Serial.println("FileStorage log: ❌ SD_MMC Mount Failed!");
-            return false;
-        }
-
-        uint64_t cardSize = SD_MMC.cardSize() / (1024 * 1024);
-        Serial.printf("FileStorage log: ✅ SD_MMC Mounted! Dung lượng: %llu MB", cardSize);
-        return true;
-    }
-
-    bool exists(String path) {
-        return SD_MMC.exists(path);
-    }
-
-    void showAllFile() {
-        fs::File root = SD_MMC.open("/");
-        if (!root) {
-            Serial.println("FileStorage log: ❌ Failed to open root directory!");
-            return;
-        }
-
-        Serial.println("FileStorage log: 📂 File list in SD:");
-        fs::File f = root.openNextFile();
-        while (f) {
-            Serial.printf("   %s (%u bytes)", f.name(), (unsigned int)f.size());
-            f = root.openNextFile();
-        }
-    }
-
-    void createDir(String path) {
-        if (SD_MMC.exists(path)) {
-            Serial.printf("FileStorage log: ⚠️ Thư mục %s đã tồn tại.\n", path.c_str());
-            return;
-        }
-
-        if (!SD_MMC.mkdir(path)) {
-            Serial.printf("FileStorage log: ❌ Không thể tạo thư mục %s\n", path.c_str());
-            return;
-        }
-
-        Serial.printf("FileStorage log: ✅ Tạo thư mục thành công: %s\n", path.c_str());
-    }
-
-    void removeDir(String path) {
-        if (!SD_MMC.exists(path)) {
-            Serial.printf("FileStorage log: ⚠️ Thư mục %s không tồn tại.\n", path.c_str());
-            return;
-        }
-        if (!SD_MMC.rmdir(path)) {
-            Serial.printf("FileStorage log: ❌ Không thể xóa thư mục %s\n", path.c_str());
-            return;
-        }
-        Serial.printf("FileStorage log: ✅ Xóa thư mục thành công: %s\n", path.c_str());
-    }
-
-    void removeFile(String path) {
-        if (SD_MMC.remove(path)) {
-            Serial.printf("Storage: Removed File %s\n", path.c_str());
+        if (!SD_MMC.begin("/sdcard", true, false, 20)) {
+            Serial.println("⚠️ CẢNH BÁO: Không tìm thấy thẻ nhớ SD!");
+            isSDReady = false;
         } else {
-            Serial.printf("Storage: ❌ Remove File Failed %s\n", path.c_str());
+            Serial.printf("✅ SD_MMC Ready! Dung lượng: %llu MB\n", SD_MMC.cardSize() / (1024 * 1024));
+            isSDReady = true;
         }
+        return isSDReady;
     }
 
-    void rename(String oldPath, String newPath) {
-        if (!SD_MMC.exists(oldPath)) {
-            Serial.printf("FileStorage log: ⚠️ File/Thư mục %s không tồn tại.\n", oldPath.c_str());
-            return;
-        }
-        if (SD_MMC.exists(newPath)) {
-            Serial.printf("FileStorage log: ⚠️ File/Thư mục %s đã tồn tại.\n", newPath.c_str());
-            return;
-        }
-        if (!SD_MMC.rename(oldPath, newPath)) {
-            Serial.printf("FileStorage log: ❌ Không thể đổi tên %s thành %s\n", oldPath.c_str(), newPath.c_str());
-            return;
-        }
-        Serial.printf("FileStorage log: ✅ Đổi tên thành công: %s -> %s\n", oldPath.c_str(), newPath.c_str());
+    // --- CHỈ LÀM VIỆC VỚI THẺ NHỚ ---
+    bool exists(String path) {
+        return isSDReady ? SD_MMC.exists(path) : false;
     }
 
     fs::File openFile(String path, const char* mode = FILE_READ, const bool create = false) {
-        return SD_MMC.open(path.c_str(), mode, create);
+        if (isSDReady) return SD_MMC.open(path.c_str(), mode, create); 
+        return fs::File(); 
     }
 
-    uint64_t totalBytes() {
-        return SD_MMC.totalBytes();
+    void createDir(String path) {
+        if (isSDReady && !SD_MMC.exists(path)) SD_MMC.mkdir(path);
     }
 
-    uint64_t usedBytes() {
-        return SD_MMC.usedBytes();
+    void removeFile(String path) {
+        if (isSDReady && SD_MMC.exists(path)) SD_MMC.remove(path);
     }
 
+    void removeDir(String path) {
+        if (isSDReady && SD_MMC.exists(path)) SD_MMC.rmdir(path);
+    }
+
+    void reName(String oldPath, String newPath) {
+        if (isSDReady && SD_MMC.exists(oldPath)) SD_MMC.rename(oldPath, newPath);
+    }
+
+    uint64_t totalBytes() { return isSDReady ? SD_MMC.totalBytes() : 0; }
+    uint64_t usedBytes() { return isSDReady ? SD_MMC.usedBytes() : 0; }
 };
 
 #endif

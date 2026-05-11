@@ -63,7 +63,7 @@ public:
     }
 
     const char* getIconColor() override { 
-        return "icon_setting"; 
+        return "setting"; 
     }
 
     bool showStatusBar() override { 

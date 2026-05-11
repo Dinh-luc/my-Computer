@@ -128,7 +128,7 @@ public:
                     if (inputBuffer.length() > 0 && selectedIndex < fileCount) {
                         String oldPath = currentPath + (currentPath == "/" ? "" : "/") + fileList[selectedIndex].name;
                         String newPath = currentPath + (currentPath == "/" ? "" : "/") + inputBuffer;
-                        storage.rename(oldPath, newPath);
+                        storage.reName(oldPath, newPath);
                     }
                 }
                 

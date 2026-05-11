@@ -3,6 +3,8 @@
 #include <Wire.h>
 #include "RTClib.h"
 #include <Preferences.h>
+#include <nvs_flash.h>
+#include "esp_flash.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -139,6 +141,7 @@ void taskSystem(void* pvParameters) {
 // ================= Setup =================
 void setup() {
   Serial.begin(115200);
+  delay(1000); 
   keypad.begin();
   randomSeed(analogRead(9));
   
@@ -158,6 +161,7 @@ void setup() {
   }
 
   tft.init(); 
+  tft.setSwapBytes(true);
   tft.setRotation(3); 
   tft.fillScreen(TFT_BLACK);
 

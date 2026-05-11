@@ -88,6 +88,17 @@ const char index_html[] PROGMEM = R"rawliteral(
             </div>
         </div>
 
+        <div id="audioOptionsBlock" class="img-options">
+            <label>
+                <input type="radio" name="audioMode" value="system"> 
+                Âm thanh Hệ thống / Game (Lưu vào Flash ESP32 - Tốc độ cao)
+            </label>
+            <label>
+                <input type="radio" name="audioMode" value="sdcard" checked> 
+                Nhạc giải trí / Âm thanh dài (Lưu vào Thẻ nhớ SD)
+            </label>
+        </div>
+
         <button class="btn" id="btnUploadFile" onclick="uploadFile()">Gửi vào Thẻ nhớ</button>
         <div class="progress-container" id="fileProgressCont"><div class="progress-bar" id="fileProgressBar"></div></div>
         <div class="status" id="fileStatus"></div>
@@ -139,15 +150,22 @@ const char index_html[] PROGMEM = R"rawliteral(
         if (!file) return;
         document.getElementById('fileLabel').innerText = file.name;
         
-        const optionsBlock = document.getElementById('imgOptionsBlock');
+        const imgBlock = document.getElementById('imgOptionsBlock');
+        const audioBlock = document.getElementById('audioOptionsBlock');
         const previewImg = document.getElementById('preview');
 
         if (file.type.startsWith('image/')) {
-            optionsBlock.style.display = 'block';
+            imgBlock.style.display = 'block';
+            audioBlock.style.display = 'none';
             previewImg.src = URL.createObjectURL(file); 
             previewImg.style.display = 'block';
+        } else if (file.type.startsWith('audio/')) {
+            imgBlock.style.display = 'none';
+            audioBlock.style.display = 'block';
+            previewImg.style.display = 'none';
         } else {
-            optionsBlock.style.display = 'none';
+            imgBlock.style.display = 'none';
+            audioBlock.style.display = 'none';
             previewImg.style.display = 'none';
         }
     });
@@ -168,70 +186,58 @@ const char index_html[] PROGMEM = R"rawliteral(
             stat.style.color = "#f39c12"; 
             
             const mode = document.querySelector('input[name="imgMode"]:checked').value;
-            
             const img = new Image();
             img.onload = function() {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
-                
-                let targetW = SYS_WIDTH;
-                let targetH = SYS_HEIGHT;
-                let exportMime = 'image/jpeg';
-                let exportName = file.name;
+                let targetW = SYS_WIDTH, targetH = SYS_HEIGHT;
+                let exportMime = 'image/jpeg', exportName = file.name;
                 
                 if (mode === 'wallpaper') {
-                    canvas.width = targetW;
-                    canvas.height = targetH;
-                    ctx.imageSmoothingEnabled = true;
-                    ctx.imageSmoothingQuality = 'high';
-                    
+                    canvas.width = targetW; canvas.height = targetH;
+                    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
                     const ratio = Math.max(targetW / img.width, targetH / img.height);
-                    const drawW = img.width * ratio;
-                    const drawH = img.height * ratio;
+                    const drawW = img.width * ratio, drawH = img.height * ratio;
                     ctx.drawImage(img, (targetW - drawW) / 2, (targetH - drawH) / 2, drawW, drawH);
-                    
                     exportName = exportName.replace(/\.[^/.]+$/, "") + ".jpg";
-
                 } else {
-                    // Logic Icon
                     targetW = parseInt(document.getElementById('iconW').value) || img.width;
                     targetH = parseInt(document.getElementById('iconH').value) || img.height;
                     exportMime = 'image/png'; 
-                    
-                    canvas.width = targetW;
-                    canvas.height = targetH;
+                    canvas.width = targetW; canvas.height = targetH;
                     ctx.clearRect(0, 0, targetW, targetH);
                     ctx.drawImage(img, 0, 0, targetW, targetH);
 
-                    // ====================================================
-                    // THUẬT TOÁN KHỬ VIỀN TÍM (ALPHA THRESHOLDING)
-                    // ====================================================
                     let imgData = ctx.getImageData(0, 0, targetW, targetH);
                     let data = imgData.data;
-                    
                     for (let i = 3; i < data.length; i += 4) {
-                        if (data[i] < 128) {
-                            data[i] = 0;
-                        } else {
-                            data[i] = 255;
-                        }
+                        if (data[i] < 128) data[i] = 0; else data[i] = 255;
                     }
                     ctx.putImageData(imgData, 0, 0);
-                    // ====================================================
-
                     exportName = exportName.replace(/\.[^/.]+$/, "") + ".png";
                 }
 
-                // --- ĐOẠN CODE ĐƯỢC KHÔI PHỤC ---
                 canvas.toBlob(function(blob) {
                     URL.revokeObjectURL(img.src); 
                     sendToServer(blob, exportName, '/upload', 'fileProgressCont', 'fileProgressBar', 'fileStatus', 'btnUploadFile');
                 }, exportMime, 0.90); 
-                // ---------------------------------
-
             };
             img.src = URL.createObjectURL(file);
-        } else {
+        } 
+        else if (file.type.startsWith('audio/')) {
+            // LOGIC PHÂN LUỒNG ÂM THANH
+            const audioMode = document.querySelector('input[name="audioMode"]:checked').value;
+            let exportName = file.name;
+            
+            // Gắn mật mã để ESP32 biết đường phân loại
+            if (audioMode === 'system') {
+                exportName = "SYS_" + exportName; 
+            } else {
+                exportName = "SD_" + exportName;
+            }
+            sendToServer(file, exportName, '/upload', 'fileProgressCont', 'fileProgressBar', 'fileStatus', 'btnUploadFile');
+        } 
+        else {
             sendToServer(file, file.name, '/upload', 'fileProgressCont', 'fileProgressBar', 'fileStatus', 'btnUploadFile');
         }
     }

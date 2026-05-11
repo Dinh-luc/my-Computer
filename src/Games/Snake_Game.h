@@ -85,7 +85,7 @@ class SnakeGame: public AppInterface {
         }
 
         const char* getIconColor() override {
-            return "SNAKE";
+            return "snake";
         }
 
         bool showStatusBar() override { 

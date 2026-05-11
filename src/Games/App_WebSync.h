@@ -5,17 +5,18 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 
-// Fix macro collision
 #undef CLOSED
 
 #include <ESPAsyncWebServer.h> 
 #include <Update.h>            
 #include <WiFi.h>
-#include <SD_MMC.h> // Để ghi file vào thẻ nhớ
 
-#include "Webserver/WebUI.h" // Gọi file giao diện HTML/CSS/JS
+#include "Webserver/WebUI.h"
+
+#include "Helpers/Storage.h"
 
 extern TFT_eSPI tft;
+extern Storage storage; 
 extern int width;
 extern int height;
 
@@ -39,7 +40,7 @@ public:
     }
 
     const char* getIconColor() override {
-        return "icon_download";
+        return "download";
     }
 
     bool showStatusBar() override { 
@@ -149,33 +150,41 @@ private:
                 // Gói tin đầu tiên: Tạo file và Phân loại thư mục
                 if (index == 0) {
                     String path = "";
-                    // Xóa dấu cách trong tên file để SD card không bị lỗi
                     filename.replace(" ", "_"); 
                     
                     if (filename.endsWith(".jpg")) {
-                        // 1. Nếu là ảnh JPG -> Lưu vào thư mục Hình nền
-                        if (!SD_MMC.exists("/SystemConfig/background")) {
-                            SD_MMC.mkdir("/SystemConfig/background");
-                        }
-                        path = "/SystemConfig/background/" + filename;
+                        // 1. Ảnh JPG -> Hình nền -> Lưu Thẻ nhớ
+                        storage.createDir("/Background");
+                        path = "/Background/" + filename;
                     } 
                     else if (filename.endsWith(".png")) {
-                        // 2. Nếu là ảnh PNG -> Lưu vào thư mục Icon
-                        if (!SD_MMC.exists("/SystemConfig/icon")) {
-                            SD_MMC.mkdir("/SystemConfig/icon");
-                        }
-                        path = "/SystemConfig/icon/" + filename;
+                        // 2. Ảnh PNG -> Icon -> Lưu Flash (LittleFS)
+                        storage.createDir("/sys");
+                        storage.createDir("/sys/ic");
+                        path = "/sys/ic/" + filename;
                     } 
-                    else {
-                        // 3. Nếu là các định dạng khác (Nhạc MP3, WAV...) -> Lưu vào Music
-                        if (!SD_MMC.exists("/Music")) {
-                            SD_MMC.mkdir("/Music");
-                        }
+                    else if (filename.startsWith("SYS_")) {
+                        // 3. Âm thanh Hệ thống (Đã được JS gắn tiền tố SYS_) -> Lưu Flash
+                        filename.remove(0, 4); // Xóa chữ "SYS_" đi cho đẹp tên file
+                        storage.createDir("/sys");
+                        storage.createDir("/sys/au");
+                        path = "/sys/au/" + filename;
+                    }
+                    else if (filename.startsWith("SD_")) {
+                        // 4. Nhạc giải trí (Đã được JS gắn tiền tố SD_) -> Lưu Thẻ nhớ
+                        filename.remove(0, 3); // Xóa chữ "SD_" 
+                        storage.createDir("/Music");
                         path = "/Music/" + filename;
                     }
+                    else {
+                        // Các định dạng khác mặc định đẩy ra thẻ nhớ
+                        storage.createDir("/Data");
+                        path = "/Data/" + filename;
+                    }
                     
-                    // Mở file và gán con trỏ vào request
-                    file = new fs::File(SD_MMC.open(path, FILE_WRITE));
+                    // Tuyệt chiêu: Mở file bằng Storage thông minh. 
+                    // Nó sẽ tự biết gọi LittleFS hay SD_MMC dựa trên Path!
+                    file = new fs::File(storage.openFile(path, FILE_WRITE));
                     request->_tempObject = (void*)file;
                 }
                 

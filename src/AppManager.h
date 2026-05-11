@@ -11,6 +11,7 @@
 #include "Helpers/Screensaver.h"
 #include "Helpers/Storage.h"
 #include "Helpers/Icon.h"
+#include "Helpers/SystemAssets.h"
 
 #include "StatusBar.h"
 #include "SettingsApp.h"
@@ -61,7 +62,6 @@ public:
     AppManager(AppInterface* appList[], int count) {
         apps = appList;
         appCount = count;
-        
         // Cấp phát mảng con trỏ chứa Icon (Lưu trong RAM)
         iconSprites = new TFT_eSprite*[appCount];
         for(int i = 0; i < appCount; i++) {
@@ -82,33 +82,28 @@ public:
     }
 
     void loadBackground() {
-        if (theme.wallpaperPath == "") {
-            isBgLoaded = false;
-            lastLoadedPath = "";
-            return;
-        }
+        menuSpritePtr = &bgCache; 
+        TJpgDec.setCallback(tft_output);
+        TJpgDec.setSwapBytes(true); 
 
-        if (isBgLoaded && lastLoadedPath == theme.wallpaperPath) return; 
-
-        if (storage.exists(theme.wallpaperPath)) {
-            menuSpritePtr = &bgCache; 
-            TJpgDec.setCallback(tft_output);
-            TJpgDec.setSwapBytes(true); 
-
-            uint16_t jpgW = 0, jpgH = 0;
-            TJpgDec.getFsJpgSize(&jpgW, &jpgH, theme.wallpaperPath.c_str(), SD_MMC);
-            
-            TJpgDec.drawFsJpg(0, 0, theme.wallpaperPath.c_str(), SD_MMC);
-            
-            isBgLoaded = true;
-            lastLoadedPath = theme.wallpaperPath;
+        // Kiểm tra ảnh Custom trên thẻ nhớ
+        String sdBgPath = "/sdcard/bg_custom.jpg"; 
+        
+        if (storage.exists(sdBgPath)) {
+            // Cần thư viện FS.h / SD_MMC để TJpgDec đọc được
+            TJpgDec.drawSdJpg(0, 0, sdBgPath.c_str()); 
+            Serial.println("Đã tải Background từ thẻ SD.");
         } else {
-            isBgLoaded = false;
+            // Không có thẻ nhớ? Kích hoạt Fallback dùng mảng ROM (bg1)
+            TJpgDec.drawJpg(0, 0, bg1, bg1_len);
+            Serial.println("Đã tải Background mặc định từ ROM.");
         }
+        
+        isBgLoaded = true;
     }
 
     void renderMenu() {
-        // 1. Đổ nền từ bộ nhớ đệm (Rất nhanh)
+        // Đổ nền từ bộ nhớ đệm
         if (isBgLoaded) bgCache.pushToSprite(&img, 0, 0);
         else img.fillSprite(theme.color.bg);
 
@@ -151,13 +146,29 @@ public:
                 String appName = String(apps[i]->getName());
                 String iconName = String(apps[i]->getIconColor()); 
                 iconName.replace(" ", "_"); 
-                String iconPath = "/SystemConfig/icon/" + iconName + ".png";
+                String iconPath = "/sys/ic/" + iconName + ".png";
+                bool iconLoaded = false;
 
                 if (storage.exists(iconPath)) {
-                    // Chỉ giải mã từ thẻ nhớ ĐÚNG 1 LẦN DUY NHẤT
-                    IconHelper::drawIcon(iconSprites[i], iconPath, 0, 0);
-                } else {
-                    iconSprites[i]->fillRoundRect(0, 0, 32, 32, 4, isSelected ? theme.color.bg : theme.color.border);
+                    iconLoaded = IconHelper::drawIconFromSD(iconSprites[i], iconPath, 0, 0);
+                }
+
+                if (!iconLoaded) {
+                    if (appName == "SETTINGS") {
+                        IconHelper::drawIconFromROM(iconSprites[i], icon_setting, icon_setting_len, 0, 0);
+                    }
+                    else if (appName == "TETRIS") {
+                        IconHelper::drawIconFromROM(iconSprites[i], icon_tetris, icon_tetris_len, 0, 0);
+                    }
+                    else if (appName == "SNAKE") {
+                        IconHelper::drawIconFromROM(iconSprites[i], icon_snake, icon_snake_len, 0, 0);
+                    }
+                    else if (appName == "DOWNLOAD") {
+                        IconHelper::drawIconFromROM(iconSprites[i], icon_download, icon_download_len, 0, 0);
+                    }
+                    else {
+                        IconHelper::drawIconFromROM(iconSprites[i], icon_default, icon_default_len, 0, 0);
+                    }
                 }
             }
 

@@ -103,7 +103,7 @@ class TetrisGame: public AppInterface {
         }
 
         const char* getIconColor() override {
-            return "TETRIS";
+            return "tetris";
         }
 
         bool showStatusBar() override { 

@@ -175,7 +175,7 @@ public:
                     theme.wallpaperPath = ""; // User chọn [Remove / None]
                 } 
                 else {
-                    theme.wallpaperPath = "/SystemConfig/background/" + tempPathList[wallIndex];
+                    theme.wallpaperPath = "/sys/bg/" + tempPathList[wallIndex];
                 }
                 theme.saveSettings();
                 pageState = STATE_NAVIGATE; // Xong việc, quay lại menu chính
@@ -370,9 +370,9 @@ private:
 
     void scanWallpapers() {
         wallFileCount = 0;
-        if (!storage.exists("/SystemConfig/background")) storage.createDir("/SystemConfig/background");
+        if (!storage.exists("/sys/bg")) storage.createDir("/sys/bg");
         
-        fs::File root = storage.openFile("/SystemConfig/background");
+        fs::File root = storage.openFile("/sys/bg");
         fs::File file = root.openNextFile();
         while(file && wallFileCount < 10) {
             String name = String(file.name());
