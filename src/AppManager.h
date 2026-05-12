@@ -86,17 +86,42 @@ public:
         TJpgDec.setCallback(tft_output);
         TJpgDec.setSwapBytes(true); 
 
-        // Kiểm tra ảnh Custom trên thẻ nhớ
-        String sdBgPath = "/sdcard/bg_custom.jpg"; 
-        
-        if (storage.exists(sdBgPath)) {
-            // Cần thư viện FS.h / SD_MMC để TJpgDec đọc được
-            TJpgDec.drawSdJpg(0, 0, sdBgPath.c_str()); 
-            Serial.println("Đã tải Background từ thẻ SD.");
-        } else {
-            // Không có thẻ nhớ? Kích hoạt Fallback dùng mảng ROM (bg1)
-            TJpgDec.drawJpg(0, 0, bg1, bg1_len);
-            Serial.println("Đã tải Background mặc định từ ROM.");
+        String bgPath = theme.wallpaperPath;
+
+        // 1. NẾU KHÔNG CÓ HÌNH NỀN (CHỮ RỖNG) -> TÔ MÀU TRƠN VÀ THOÁT NGAY
+        if (bgPath == "") {
+            bgCache.fillSprite(theme.color.bg);
+            isBgLoaded = true;
+            return;
+        }
+
+        // 2. NẾU LÀ HÌNH NỀN TỪ MẢNG HEX (ROM)
+        if(bgPath.startsWith("ROM:")) {
+            if (bgPath == "ROM: Default 1") {
+                Serial.println("Đang tải hình nền mặc định 1 từ ROM...");
+                TJpgDec.drawJpg(0, 0, bg1, bg1_len); 
+            }
+            else if (bgPath == "ROM: Default 2") {
+                Serial.println("Đang tải hình nền mặc định 2 từ ROM...");
+                TJpgDec.drawJpg(0, 0, bg2, bg2_len); 
+            }
+            else if (bgPath == "ROM: Default 3") {
+                Serial.println("Đang tải hình nền mặc định 3 từ ROM...");
+                TJpgDec.drawJpg(0, 0, bg3, bg3_len); 
+            }
+        }
+        // 3. NẾU LÀ HÌNH NỀN TỪ THẺ NHỚ (SD_MMC)
+        else {
+            String fullPath = "/SystemConfig/background/" + bgPath;
+            
+            // Chỉ đọc nếu đường dẫn KHÔNG PHẢI là thư mục
+            if (storage.exists(fullPath) && !SD_MMC.open(fullPath).isDirectory()) {
+                // BẮT BUỘC DÙNG drawFsJpg ĐỂ TRUYỀN Ổ ĐĨA SD_MMC VÀO
+                TJpgDec.drawFsJpg(0, 0, fullPath.c_str(), SD_MMC);
+            } else {
+                Serial.println("Lỗi: Không tìm thấy hình nền hợp lệ trên thẻ SD!");
+                bgCache.fillSprite(theme.color.bg);
+            }
         }
         
         isBgLoaded = true;
@@ -146,7 +171,7 @@ public:
                 String appName = String(apps[i]->getName());
                 String iconName = String(apps[i]->getIconColor()); 
                 iconName.replace(" ", "_"); 
-                String iconPath = "/sys/ic/" + iconName + ".png";
+                String iconPath = "/SystemConfig/icon/" + iconName + ".png";
                 bool iconLoaded = false;
 
                 if (storage.exists(iconPath)) {
@@ -214,6 +239,7 @@ public:
                 activeApp = nullptr;
                 
                 img.createSprite(width, height - BAR_HEIGHT);
+                loadBackground();
                 renderMenu();
             } else {
                 activeApp->handleInput(key);
